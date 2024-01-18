@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  PowerTools Parameters
+
+Resources:
+  BasicParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: 'basicparameter'
+      Type: String
+      Value: 'Hello'
+      Description: SSM Basic Parameter
+
+  MultipleParameter1:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/mylambda/multipleparameter1'
+      Type: String
+      Value: 'Parameter 1 Value'
+      Description: SSM Multiple Parameter
+
+  MultipleParameter2:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: '/mylambda/multipleparameter2'
+      Type: String
+      Value: 'Parameter 2 Value'
+      Description: SSM Multiple Parameter
+
+  SecretParameter:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Secrets Manager Secret
+      Name: 'secret'
+      GenerateSecretString:
+        PasswordLength: 16
+
+  JsonParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: 'jsonparameter'
+      Type: String
+      Value: "{\"Parameter1\":\"value1\", \"Parameter2\":\"value2\"}"
+      Description: SSM Json Parameter
+
+  MyLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 60
+      MemorySize: 512
+      Tracing: Active
+      Runtime: dotnet6
+      Architectures:
+        - x86_64    
+      Handler: MyLambda::MyLambda.Function::FunctionHandler
+      CodeUri: ./src/MyLambda/
+      Events:
+        ListPosts:
+          Type: Api
+          Properties:
+            Path: /api
+            Method: get
+      Environment:
+        Variables:
+          SecretArn: 
+            Ref: SecretParameter
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName:
+              Ref: BasicParameter
+        - SSMParameterWithSlashPrefixReadPolicy:
+            ParameterName: '/mylambda'
+        - SSMParameterReadPolicy:
+            ParameterName: 'secureparameter'
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: 
+              Ref: SecretParameter
+        - SSMParameterReadPolicy:
+            ParameterName:
+              Ref: JsonParameter
+
+Outputs:
+  TaskApi:
+    Description: "API Gateway endpoint URL"
+    Value: 
+      Fn::Sub:
+        - https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/Prod/api
+        - ApiId: 
+            Ref: ServerlessRestApi
